@@ -35,10 +35,10 @@ module Okura
   end
 
   class Nodes
-    def initialize len,mat
-      @mat=mat
-      @begins=(0...len).map{[]}
-      @ends=(0...len).map{[]}
+    def initialize(length, mat)
+      @mat = mat
+      @begins = Array.new(length) { [] }
+      @ends = Array.new(length) { [] }
     end
 
     def [](i)
@@ -51,43 +51,47 @@ module Okura
 
     # Matrix -> [Node] | nil
     def mincost_path
-      return [] if length==0
+      return [] if @begins.empty?
+
       # calc cost
       self[0].each{|n|
-        n.total_cost=n.word.cost
-        n.nearest_prev=nil
+        n.total_cost = n.word.cost
+        n.nearest_prev = nil
       }
+
       (1...length).each{|i|
-        prevs=@ends[i-1]
-        curs=@begins[i]
+        prevs = @ends[i-1]
+        curs = @begins[i]
         prevs.each{|prev|
           # 途中で行き止まりのNodeはtotal_costが設定されない
           next if prev.total_cost.nil?
           curs.each{|cur|
-            join_cost=@mat.cost(prev.word.right.id,cur.word.left.id)
+            join_cost = @mat.cost(prev.word.right.id,cur.word.left.id)
             next if join_cost.nil?
-            cost=prev.total_cost+join_cost+cur.word.cost
+            cost = prev.total_cost+join_cost+cur.word.cost
             if !cur.total_cost || cost < cur.total_cost
-              cur.total_cost=cost
-              cur.nearest_prev=prev
+              cur.total_cost = cost
+              cur.nearest_prev = prev
             end
           }
         }
       }
+
       # calc mincost path
-      ret=[]
-      cur=self[-1][0]
+      ret = []
+      cur = self[-1][0]
       until cur.nil?
         ret.push cur
-        cur=cur.nearest_prev
+        cur = cur.nearest_prev
       end
+
       # TODO: disconnected
       #  return nil unless ...
       # success
       return ret.reverse
     end
 
-    def add i,node
+    def add(i, node)
       @begins[i].push node
       @ends[i+node.length-1].push node
     end
@@ -99,9 +103,9 @@ module Okura
     attr_accessor :total_cost
 
     def initialize word
-      @word=word
-      @nearest_prev=nil
-      @total_cost=nil
+      @word = word
+      @nearest_prev = nil
+      @total_cost = nil
     end
 
     def length
@@ -113,8 +117,8 @@ module Okura
     end
 
     def self.mk_bos_eos
-      f=Features::BOS_EOS
-      node=Node.new Word.new('BOS/EOS',f,f,0)
+      f = Features::BOS_EOS
+      node = Node.new Word.new('BOS/EOS',f,f,0)
       def node.length; 1; end
       node
     end
@@ -123,14 +127,14 @@ module Okura
   class Words
     class CompactStringArray
       def initialize str,indices
-        @str=str
-        @indices=indices
+        @str = str
+        @indices = indices
       end
 
       def get id
         raise 'bad id' unless id < @indices.length
-        from=@indices[id]
-        to=(id+1 < @indices.length) ? @indices[id+1] : @str.bytesize
+        from = @indices[id]
+        to = (id+1 < @indices.length) ? @indices[id+1] : @str.bytesize
         (from...to).map{|i|@str.getbyte(i)}.pack('C*').force_encoding 'UTF-8'
       end
 
@@ -140,9 +144,9 @@ module Okura
 
       class Builder
         def initialize
-          @indices=[]
-          @surfaces=[]
-          @size=0
+          @indices = []
+          @surfaces = []
+          @size = 0
         end
 
         def build
@@ -150,10 +154,10 @@ module Okura
         end
 
         def add surface
-          id=@indices.length
+          id = @indices.length
           @indices.push @size
           @surfaces.push surface
-          @size+=surface.bytesize
+          @size+ = surface.bytesize
           id
         end
       end
@@ -162,29 +166,29 @@ module Okura
     class Builder
       def initialize
         # group id -> [Word]
-        @groups=[]
-        @next_group_id=0
+        @groups = []
+        @next_group_id = 0
         # surface -> id
-        @group_ids={}
-        @surfaces=Okura::Words::CompactStringArray::Builder.new
-        @left_features=Features.new
-        @right_features=Features.new
-        @surface_ids=[]
-        @left_ids=[]
-        @right_ids=[]
-        @costs=[]
+        @group_ids = {}
+        @surfaces = Okura::Words::CompactStringArray::Builder.new
+        @left_features = Features.new
+        @right_features = Features.new
+        @surface_ids = []
+        @left_ids = []
+        @right_ids = []
+        @costs = []
       end
 
       def add word
         unless @group_ids.has_key? word.surface
-          gid=add_group! word.surface
-          wid=add_word! gid,word
-          @group_ids[word.surface]=gid
-          @groups[gid]=[wid]
+          gid = add_group! word.surface
+          wid = add_word! gid,word
+          @group_ids[word.surface] = gid
+          @groups[gid] = [wid]
           gid
         else
-          gid=@group_ids[word.surface]
-          wid=add_word! gid,word
+          gid = @group_ids[word.surface]
+          wid = add_word! gid,word
           @groups[gid].push wid
           gid
         end
@@ -198,12 +202,12 @@ module Okura
 
       private
       def add_group! surface
-        group_id=@surfaces.add surface
+        group_id = @surfaces.add surface
         group_id
       end
 
       def add_word! group_id,word
-        wid=@surface_ids.length
+        wid = @surface_ids.length
         @surface_ids.push group_id
         @left_ids.push word.left.id
         @right_ids.push word.right.id
@@ -216,14 +220,14 @@ module Okura
 
     def initialize groups,surfaces,left_features,right_features,surface_ids,left_ids,right_ids,costs
       # group id -> [word id]
-      @groups=groups
-      @surfaces=surfaces
-      @left_features=left_features
-      @right_features=right_features
-      @surface_ids=surface_ids
-      @left_ids=left_ids
-      @right_ids=right_ids
-      @costs=costs
+      @groups = groups
+      @surfaces = surfaces
+      @left_features = left_features
+      @right_features = right_features
+      @surface_ids = surface_ids
+      @left_ids = left_ids
+      @right_ids = right_ids
+      @costs = costs
     end
 
     def group group_id
@@ -254,11 +258,11 @@ module Okura
 
     def initialize surface,left,right,cost
       raise "bad feature: #{left.inspect}" unless left.respond_to? :text
-      @surface,@left,@right,@cost=surface,left,right,cost
+      @surface,@left,@right,@cost = surface,left,right,cost
     end
 
-    def == other
-      return [surface,left,right,cost] ==
+    def  =  =  other
+      return [surface,left,right,cost]  =  = 
         [other.surface,other.left,other.right,other.cost]
     end
 
@@ -275,15 +279,15 @@ module Okura
     attr_reader :id
     attr_reader :text
     def initialize id,text
-      @id,@text=id,text
+      @id,@text = id,text
     end
 
     def to_s
       "Feature(#{id},#{text})"
     end
 
-    def == other
-      return self.id==other.id
+    def  =  =  other
+      return self.id =  = other.id
     end
 
     def hash
@@ -291,10 +295,10 @@ module Okura
     end
   end
   class Features
-    BOS_EOS=Feature.new 0,'BOS/EOS'
+    BOS_EOS = Feature.new 0,'BOS/EOS'
 
     def initialize
-      @map_id={}
+      @map_id = {}
     end
 
     # Integer -> Feature
@@ -307,7 +311,7 @@ module Okura
     end
 
     def add id,text
-      @map_id[id]=Feature.new id,text
+      @map_id[id] = Feature.new id,text
     end
 
     def size
@@ -319,12 +323,12 @@ module Okura
     attr_reader :word_dic
     attr_reader :unk_dic
     def initialize word_dic,unk_dic
-      @word_dic,@unk_dic=word_dic,unk_dic
+      @word_dic,@unk_dic = word_dic,unk_dic
     end
 
     # -> [Word]
     def possible_words str,i
-      ret=@word_dic.possible_words str,i
+      ret = @word_dic.possible_words str,i
       ret.concat(@unk_dic.possible_words(str,i,!ret.empty?))
       ret
     end
@@ -333,24 +337,24 @@ module Okura
   class UnkDic
     # CharTypes -> Features ->
     def initialize char_types
-      @char_types=char_types
-      # CharType.name => [Word]
-      @templates={}
+      @char_types = char_types
+      # CharType.name  = > [Word]
+      @templates = {}
     end
 
     # -> [Word]
     def possible_words str,i,found_in_normal_dic
-      ret=[]
-      first_char_type=@char_types.type_for str[i].ord
+      ret = []
+      first_char_type = @char_types.type_for str[i].ord
       return [] if found_in_normal_dic && !first_char_type.invoke?
 
       collect_result ret,first_char_type,str[i..i] if first_char_type.length > 0
 
-      l=1
+      l = 1
       str[(i+1)..-1].each_codepoint{|cp|
         break unless first_char_type.accept? cp
-        l+=1
-        collect_result ret,first_char_type,str[i...(i+l)] if first_char_type.length >= l
+        l+ = 1
+        collect_result ret,first_char_type,str[i...(i+l)] if first_char_type.length > =  l
       }
       collect_result ret,first_char_type,str[i...(i+l)] if first_char_type.group? && first_char_type.length < l
 
@@ -367,8 +371,8 @@ module Okura
     public
     # String -> Feature -> Feature -> Integer ->
     def define type_name,left,right,cost
-      type=@char_types.named type_name
-      (@templates[type_name]||=[]).push Word.new '',left,right,cost
+      type = @char_types.named type_name
+      (@templates[type_name]|| = []).push Word.new '',left,right,cost
     end
 
     def word_templates_for type_name
@@ -382,9 +386,9 @@ module Okura
 
   class CharTypes
     def initialize
-      @types={}
-      @mapping={}
-      @compat_mapping={}
+      @types = {}
+      @mapping = {}
+      @compat_mapping = {}
     end
 
     def type_for charcode
@@ -394,11 +398,11 @@ module Okura
     end
 
     def define_type name,invoke,group,length
-      @types[name]=CharType.new(name,invoke,group,length)
+      @types[name] = CharType.new(name,invoke,group,length)
     end
 
     def define_map charcode,type,compat_types
-      @mapping[charcode]=type
+      @mapping[charcode] = type
       type.add charcode
       compat_types.each{|ct|ct.add charcode}
     end
@@ -417,12 +421,12 @@ module Okura
     attr_reader :length
 
     def initialize name,invoke,group,length
-      @name,@invoke,@group,@length=name,invoke,group,length
-      @accept_charcodes={}
+      @name,@invoke,@group,@length = name,invoke,group,length
+      @accept_charcodes = {}
     end
 
     def add charcode
-      @accept_charcodes[charcode]=true
+      @accept_charcodes[charcode] = true
     end
 
     def group?; @group; end
@@ -439,8 +443,8 @@ module Okura
     attr_reader :lsize
 
     def initialize rsize,lsize
-      @mat=[nil]*(lsize*rsize)
-      @lsize,@rsize=lsize,rsize
+      @mat = [nil]*(lsize*rsize)
+      @lsize,@rsize = lsize,rsize
     end
 
     # Feature.id -> Feature.id -> Int
@@ -449,7 +453,7 @@ module Okura
     end
 
     def set(rid,lid,cost)
-      @mat[rid*lsize+lid]=cost
+      @mat[rid*lsize+lid] = cost
     end
   end
 end
