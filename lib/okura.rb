@@ -6,28 +6,30 @@ module Okura
     attr_reader :dic
     attr_reader :mat
 
-    def initialize dic,mat
-      @dic,@mat=dic,mat
+    def initialize(dic, mat)
+      @dic, @mat = dic, mat
     end
 
     # -> [String]
-    def wakati str,mat
-      mincost_path=parse(str).mincost_path
-      return nil if mincost_path.nil?
-      return mincost_path.map{|node|node.word.surface}
+    def wakati(str, mat)
+      return nil unless mincost_path = parse(str).mincost_path
+
+      mincost_path.map {|node| node.word.surface }
     end
 
     # -> Nodes
-    def parse str
-      chars=str.split(//)
-      nodes=Nodes.new(chars.length+2,@mat)
-      nodes.add(0,Node.mk_bos_eos)
-      nodes.add(chars.length+1,Node.mk_bos_eos)
-      str.length.times{|i|
-        @dic.possible_words(str,i).each{|w|
-          nodes.add(i+1,Node.new(w))
-        }
-      }
+    def parse(str)
+      chars = str.split(//)
+      nodes = Nodes.new(chars.length + 2, @mat)
+      nodes.add(0, Node.mk_bos_eos)
+      nodes.add(chars.length + 1, Node.mk_bos_eos)
+
+      str.length.times do |i|
+        @dic.possible_words(str, i).each do |w|
+          nodes.add(i + 1, Node.new(w))
+        end
+      end
+
       nodes
     end
   end
